@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -10,19 +11,23 @@ public class Server {
     public static void main(String[] args) {
         Server server = new Server();
         final ReentrantLock thread1Lock = new ReentrantLock(true);
+        Condition condition = thread1Lock.newCondition();
 
         Thread thread1 = new Thread(() -> {
+            thread1Lock.lock();
 
-            for (int i = 0; i < 50; i += 2) {
-
-                thread1Lock.lock();
-                try {
+            try {
+                for (int i = 0; i < 50; i += 2) {
                     server.addNumber(i);
-                } finally {
-                    thread1Lock.unlock();
+                    condition.await();
                 }
 
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                thread1Lock.unlock();
             }
+
         });
 
         Thread thread2 = new Thread(() -> {
@@ -30,8 +35,13 @@ public class Server {
             for (int i = 1; i < 50; i += 2) {
 
                 thread1Lock.lock();
+
                 try {
                     server.addNumber(i);
+
+                    condition.signal();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 } finally {
                     thread1Lock.unlock();
                 }
